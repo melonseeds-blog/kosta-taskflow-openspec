@@ -1,0 +1,18 @@
+{
+  "builds": [
+    {
+      "src": "api/index.py",
+      "use": "@vercel/python",
+      "config": { "maxDuration": 30 }
+    }
+  ],
+  "routes": [
+    { "src": "/api/(.*)", "dest": "api/index.py" },
+    { "src": "/static/(.*)", "dest": "/frontend/static/$1" },
+    { "src": "/login", "dest": "/frontend/public/login.html" },
+    { "src": "/team", "dest": "/frontend/public/team.html" },
+    { "src": "/app", "dest": "/frontend/public/app.html" },
+    { "src": "/error", "dest": "/frontend/public/error.html" },
+    { "src": "/", "dest": "/frontend/public/login.html" }
+  ]
+}

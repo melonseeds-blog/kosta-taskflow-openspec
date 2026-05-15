@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TaskFlow</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* 모바일에서 칸반 컬럼 기본 숨김 처리 */
+    @media (max-width: 767px) {
+      .kanban-col { display: none; }
+      .kanban-col.mobile-active { display: flex; }
+    }
+    @media (min-width: 768px) {
+      .kanban-col { display: flex !important; }
+    }
+    /* 메시지 목록 스크롤 영역 */
+    #chat-messages {
+      scroll-behavior: smooth;
+    }
+    /* 카드 드래그 중 커서 */
+    [draggable="true"]:active { cursor: grabbing; }
+    [draggable="true"] { cursor: grab; }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen flex flex-col">
+
+  <!-- ═══════════════════════════════════════════
+       헤더
+  ═══════════════════════════════════════════ -->
+  <header class="bg-[#0f3444] text-white sticky top-0 z-30 shadow-md">
+    <div class="max-w-screen-xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
+
+      <!-- 좌측: 로고 + 팀명 -->
+      <div class="flex items-center gap-3 min-w-0">
+        <span class="font-bold text-lg tracking-tight whitespace-nowrap">TaskFlow</span>
+        <span class="hidden md:inline text-teal-300">|</span>
+        <span id="header-team-name" class="hidden md:inline text-sm text-teal-200 truncate max-w-[180px]">팀 로딩 중...</span>
+        <!-- 모바일: 팀명만 -->
+        <span id="header-team-name-mobile" class="md:hidden text-sm text-teal-200 truncate max-w-[140px]">팀 로딩 중...</span>
+      </div>
+
+      <!-- 데스크탑 탭 네비게이션 -->
+      <nav id="desktop-nav" class="hidden md:flex items-center gap-1">
+        <button id="tab-kanban"
+                onclick="switchTab('kanban')"
+                class="tab-btn px-4 py-1.5 rounded-md text-sm font-medium transition-colors bg-teal-600 text-white">
+          📋 칸반
+        </button>
+        <button id="tab-chat"
+                onclick="switchTab('chat')"
+                class="tab-btn px-4 py-1.5 rounded-md text-sm font-medium transition-colors bg-transparent text-teal-100 hover:bg-white/10">
+          💬 채팅
+        </button>
+        <button id="tab-members"
+                onclick="switchTab('members')"
+                class="tab-btn px-4 py-1.5 rounded-md text-sm font-medium transition-colors bg-transparent text-teal-100 hover:bg-white/10">
+          👥 멤버
+        </button>
+      </nav>
+
+      <!-- 데스크탑 우측: 이메일 + 로그아웃 -->
+      <div class="hidden md:flex items-center gap-3">
+        <span id="header-user-email" class="text-sm text-teal-100 truncate max-w-[200px]"></span>
+        <button onclick="doLogout()"
+                class="text-sm text-white/70 hover:text-white transition-colors px-2 py-1 rounded hover:bg-white/10">
+          로그아웃
+        </button>
+      </div>
+
+      <!-- 모바일 햄버거 -->
+      <button id="hamburger-btn"
+              onclick="toggleMobileMenu()"
+              class="md:hidden flex flex-col gap-1 p-2 rounded-md hover:bg-white/10 transition-colors"
+              aria-label="메뉴 열기">
+        <span class="w-5 h-0.5 bg-white block"></span>
+        <span class="w-5 h-0.5 bg-white block"></span>
+        <span class="w-5 h-0.5 bg-white block"></span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════════════════════════
+       모바일 슬라이드 메뉴
+  ═══════════════════════════════════════════ -->
+  <!-- 오버레이 -->
+  <div id="mobile-overlay"
+       onclick="toggleMobileMenu()"
+       class="fixed inset-0 bg-black/40 z-40 hidden md:hidden"></div>
+
+  <!-- 슬라이드 패널 -->
+  <aside id="mobile-menu"
+         class="fixed top-0 right-0 h-full w-64 bg-[#0f3444] z-50 shadow-2xl
+                transform translate-x-full transition-transform duration-300 ease-in-out
+                flex flex-col md:hidden">
+    <!-- 사용자 정보 -->
+    <div class="px-5 pt-6 pb-4 border-b border-white/10">
+      <p id="mobile-user-email" class="text-sm text-white font-medium truncate"></p>
+      <p id="mobile-user-role" class="text-xs text-teal-300 mt-0.5"></p>
+    </div>
+    <!-- 메뉴 아이템 -->
+    <nav class="flex-1 px-3 py-4 flex flex-col gap-1">
+      <button onclick="switchTab('kanban'); toggleMobileMenu()"
+              class="mobile-nav-btn text-left px-4 py-3 rounded-lg text-sm text-white hover:bg-white/10 transition-colors">
+        📋 칸반
+      </button>
+      <button onclick="switchTab('chat'); toggleMobileMenu()"
+              class="mobile-nav-btn text-left px-4 py-3 rounded-lg text-sm text-white hover:bg-white/10 transition-colors">
+        💬 채팅
+      </button>
+      <button onclick="switchTab('members'); toggleMobileMenu()"
+              class="mobile-nav-btn text-left px-4 py-3 rounded-lg text-sm text-white hover:bg-white/10 transition-colors">
+        👥 팀 멤버
+      </button>
+    </nav>
+    <div class="px-3 pb-6">
+      <button onclick="doLogout()"
+              class="w-full text-left px-4 py-3 rounded-lg text-sm text-red-300 hover:bg-white/10 transition-colors">
+        🚪 로그아웃
+      </button>
+    </div>
+  </aside>
+
+  <!-- ═══════════════════════════════════════════
+       메인 콘텐츠
+  ═══════════════════════════════════════════ -->
+  <main class="flex-1 flex flex-col overflow-hidden">
+
+    <!-- ──────────────────────────────────────
+         칸반 섹션
+    ────────────────────────────────────── -->
+    <section id="kanban-section" class="flex-1 flex flex-col overflow-hidden">
+
+      <!-- 필터 바 -->
+      <div class="bg-white border-b border-gray-200 px-4 py-2.5 flex items-center gap-2 flex-wrap">
+        <div class="flex items-center gap-1">
+          <button id="filter-all"
+                  class="px-3 py-1 text-xs rounded-md border font-medium transition-colors bg-teal-600 text-white border-teal-600">
+            전체
+          </button>
+          <button id="filter-me"
+                  class="px-3 py-1 text-xs rounded-md border font-medium transition-colors bg-white text-gray-700 border-gray-300 hover:border-teal-400">
+            @me
+          </button>
+          <button id="filter-unassigned"
+                  class="px-3 py-1 text-xs rounded-md border font-medium transition-colors bg-white text-gray-700 border-gray-300 hover:border-teal-400">
+            미할당
+          </button>
+        </div>
+        <div class="ml-auto text-xs text-gray-400">최근 생성순</div>
+      </div>
+
+      <!-- 모바일 컬럼 인디케이터 -->
+      <div class="md:hidden flex bg-white border-b border-gray-200">
+        <button id="mobile-tab-TODO"
+                onclick="kanban._showMobileColumn(0)"
+                class="flex-1 py-2 text-xs font-semibold text-center transition-colors bg-teal-600 text-white">
+          TODO
+        </button>
+        <button id="mobile-tab-DOING"
+                onclick="kanban._showMobileColumn(1)"
+                class="flex-1 py-2 text-xs font-semibold text-center transition-colors bg-white text-gray-600">
+          DOING
+        </button>
+        <button id="mobile-tab-DONE"
+                onclick="kanban._showMobileColumn(2)"
+                class="flex-1 py-2 text-xs font-semibold text-center transition-colors bg-white text-gray-600">
+          DONE
+        </button>
+      </div>
+
+      <!-- 칸반 보드 -->
+      <div id="kanban-board"
+           class="flex-1 overflow-hidden p-4 flex flex-row gap-4 md:overflow-x-auto">
+        <!-- kanban.js가 동적으로 컬럼 삽입 -->
+        <div class="flex items-center justify-center w-full text-gray-400 text-sm">
+          로딩 중...
+        </div>
+      </div>
+    </section>
+
+    <!-- ──────────────────────────────────────
+         채팅 섹션
+    ────────────────────────────────────── -->
+    <section id="chat-section" class="hidden flex-1 flex flex-col overflow-hidden">
+
+      <!-- 채팅 헤더 -->
+      <div class="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <h2 class="text-sm font-semibold text-gray-800">
+            <span id="chat-team-name">팀</span> · 채팅
+          </h2>
+        </div>
+        <div class="flex items-center gap-1.5 text-xs text-gray-400">
+          <span id="chat-network-status" class="w-2 h-2 rounded-full bg-green-400" title="연결됨 · 5초마다 새로고침"></span>
+          <span>5초마다 새로고침</span>
+        </div>
+      </div>
+
+      <!-- 메시지 목록 -->
+      <div id="chat-messages"
+           class="flex-1 overflow-y-auto px-4 py-4 flex flex-col">
+        <div class="flex items-center justify-center h-full">
+          <p class="text-gray-400 text-sm">로딩 중...</p>
+        </div>
+      </div>
+
+      <!-- 입력 영역 -->
+      <div id="chat-footer"
+           class="bg-white border-t border-gray-200 px-4 py-3 flex items-end gap-2">
+        <div class="flex-1 relative">
+          <textarea
+            id="chat-input"
+            rows="1"
+            maxlength="1000"
+            placeholder="메시지를 입력하세요... (Enter: 전송, Shift+Enter: 줄바꿈)"
+            class="w-full resize-none text-sm border border-gray-300 rounded-xl px-4 py-2.5
+                   focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent
+                   max-h-32 overflow-y-auto leading-relaxed"
+            oninput="this.style.height='auto'; this.style.height=Math.min(this.scrollHeight,128)+'px'">
+          </textarea>
+          <span id="chat-char-count"
+                class="absolute bottom-2 right-3 text-xs text-gray-400 pointer-events-none">
+            0/1000
+          </span>
+        </div>
+        <button id="chat-send-btn"
+                disabled
+                class="shrink-0 w-10 h-10 flex items-center justify-center
+                       bg-teal-600 hover:bg-teal-700 disabled:opacity-50
+                       disabled:cursor-not-allowed text-white rounded-xl
+                       transition-colors shadow-sm">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 rotate-90" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/>
+          </svg>
+        </button>
+      </div>
+    </section>
+
+    <!-- ──────────────────────────────────────
+         멤버 섹션
+    ────────────────────────────────────── -->
+    <section id="members-section" class="hidden flex-1 overflow-y-auto">
+      <div class="max-w-2xl mx-auto px-4 py-6">
+        <h2 class="text-base font-semibold text-gray-800 mb-4">팀 멤버</h2>
+        <div id="members-list" class="flex flex-col gap-2">
+          <p class="text-gray-400 text-sm">로딩 중...</p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ═══════════════════════════════════════════
+       카드 상세/수정 모달
+  ═══════════════════════════════════════════ -->
+  <div id="task-modal"
+       class="hidden fixed inset-0 z-50 items-center justify-center bg-black/50 p-4"
+       onclick="if(event.target===this) kanban._closeTaskModal()">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col max-h-[90vh] overflow-hidden"
+         onclick="event.stopPropagation()">
+
+      <!-- 모달 헤더 -->
+      <div class="flex items-start justify-between px-6 pt-5 pb-4 border-b border-gray-100">
+        <div class="flex-1 min-w-0 pr-4">
+          <p id="modal-task-id" class="text-xs text-gray-400 mb-0.5">#</p>
+          <h3 id="modal-task-title" class="text-base font-semibold text-gray-900 leading-snug break-words"></h3>
+        </div>
+        <button onclick="kanban._closeTaskModal()"
+                class="shrink-0 w-8 h-8 flex items-center justify-center rounded-full
+                       text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors text-lg">
+          ×
+        </button>
+      </div>
+
+      <!-- 모달 바디 -->
+      <div class="flex-1 overflow-y-auto px-6 py-4 flex flex-col gap-4">
+
+        <!-- 상태 변경 -->
+        <div>
+          <p class="text-xs font-medium text-gray-500 mb-2">상태</p>
+          <div class="flex gap-2">
+            <button id="modal-status-TODO"
+                    onclick="kanban._setModalStatus('TODO')"
+                    class="flex-1 py-1.5 text-xs font-medium rounded-lg border transition-colors bg-white text-gray-700 border-gray-300 hover:border-yellow-400 hover:text-yellow-700">
+              TODO
+            </button>
+            <button id="modal-status-DOING"
+                    onclick="kanban._setModalStatus('DOING')"
+                    class="flex-1 py-1.5 text-xs font-medium rounded-lg border transition-colors bg-white text-gray-700 border-gray-300 hover:border-blue-400 hover:text-blue-700">
+              DOING
+            </button>
+            <button id="modal-status-DONE"
+                    onclick="kanban._setModalStatus('DONE')"
+                    class="flex-1 py-1.5 text-xs font-medium rounded-lg border transition-colors bg-white text-gray-700 border-gray-300 hover:border-green-400 hover:text-green-700">
+              DONE
+            </button>
+          </div>
+        </div>
+
+        <!-- 담당자 -->
+        <div>
+          <p class="text-xs font-medium text-gray-500 mb-2">담당자</p>
+          <div id="modal-assignee"></div>
+        </div>
+
+        <!-- 메타 정보 -->
+        <div class="bg-gray-50 rounded-xl px-4 py-3 flex flex-col gap-1.5 text-xs text-gray-500">
+          <div class="flex justify-between">
+            <span>생성자</span>
+            <span id="modal-creator" class="font-medium text-gray-700">-</span>
+          </div>
+          <div class="flex justify-between">
+            <span>생성 시각</span>
+            <span id="modal-created-at" class="font-medium text-gray-700">-</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 모달 푸터 -->
+      <div class="px-6 py-4 border-t border-gray-100 flex items-center justify-between gap-3">
+        <button id="modal-delete-btn"
+                onclick="kanban._bindDeleteConfirm(document.getElementById('task-modal')._task.id)"
+                class="hidden flex items-center gap-1.5 text-xs text-red-500 hover:text-red-700
+                       hover:bg-red-50 px-3 py-2 rounded-lg transition-colors">
+          🗑 삭제
+        </button>
+        <div class="flex gap-2 ml-auto">
+          <button onclick="kanban._closeTaskModal()"
+                  class="px-4 py-2 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">
+            취소
+          </button>
+          <button onclick="kanban._saveTaskModal()"
+                  class="px-4 py-2 text-sm text-white bg-teal-600 hover:bg-teal-700 rounded-lg transition-colors shadow-sm">
+            저장
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       삭제 확인 다이얼로그
+  ═══════════════════════════════════════════ -->
+  <div id="delete-dialog"
+       class="hidden fixed inset-0 z-50 items-center justify-center bg-black/50 p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 flex flex-col gap-4">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center shrink-0">
+          <span class="text-red-500 text-lg">🗑</span>
+        </div>
+        <div>
+          <p class="font-semibold text-gray-900 text-sm">태스크 삭제</p>
+          <p id="delete-dialog-msg" class="text-xs text-gray-500 mt-0.5 leading-relaxed"></p>
+        </div>
+      </div>
+      <p class="text-xs text-gray-400">이 작업은 되돌릴 수 없습니다.</p>
+      <div class="flex gap-2 justify-end">
+        <button onclick="_kanbanCancelDelete()"
+                class="px-4 py-2 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">
+          취소
+        </button>
+        <button onclick="_kanbanConfirmDelete()"
+                class="px-4 py-2 text-sm text-white bg-red-500 hover:bg-red-600 rounded-lg transition-colors">
+          삭제
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       토스트 컨테이너 (api.js가 관리)
+  ═══════════════════════════════════════════ -->
+  <div id="toast-container" class="fixed top-4 right-4 z-50 flex flex-col gap-2"></div>
+
+  <!-- ═══════════════════════════════════════════
+       스크립트
+  ═══════════════════════════════════════════ -->
+  <script src="/static/api.js"></script>
+  <script src="/static/auth.js"></script>
+  <script src="/static/kanban.js"></script>
+  <script src="/static/chat.js"></script>
+
+  <script>
+    /* ─────────────────────────────────────────
+       전역 상태
+    ───────────────────────────────────────── */
+    let _currentTab = 'kanban';
+    let _teamInfo = null;
+
+    /* ─────────────────────────────────────────
+       진입 초기화
+    ───────────────────────────────────────── */
+    (async function bootstrap() {
+      // 인증 가드
+      auth.requireTeam();
+
+      const user = auth.getUser();
+      if (!user) return;
+      const teamId = user.team_id;
+
+      // 팀 정보 로드
+      let teamName = '팀';
+      try {
+        _teamInfo = await api.get(`/teams/${teamId}`);
+        teamName = _teamInfo.name || '팀';
+      } catch (err) {
+        console.warn('팀 정보 로드 실패', err);
+      }
+
+      // 헤더 업데이트
+      const teamNameEl = document.getElementById('header-team-name');
+      const teamNameMobile = document.getElementById('header-team-name-mobile');
+      const userEmailEl = document.getElementById('header-user-email');
+      const mobileEmailEl = document.getElementById('mobile-user-email');
+      const mobileRoleEl = document.getElementById('mobile-user-role');
+      const chatTeamNameEl = document.getElementById('chat-team-name');
+
+      if (teamNameEl) teamNameEl.textContent = teamName;
+      if (teamNameMobile) teamNameMobile.textContent = teamName;
+      if (userEmailEl) userEmailEl.textContent = user.email || '';
+      if (mobileEmailEl) mobileEmailEl.textContent = user.email || '';
+      if (chatTeamNameEl) chatTeamNameEl.textContent = teamName;
+
+      if (mobileRoleEl && _teamInfo) {
+        const isOwner = _teamInfo.owner_id === user.id;
+        mobileRoleEl.textContent = `${teamName} · ${isOwner ? 'owner' : 'member'}`;
+      }
+
+      // 모듈 초기화
+      await kanban.init(teamId, user, _teamInfo);
+      await chat.init(teamId, user);
+
+      // 멤버 목록 로드
+      _loadMembers(teamId);
+
+      // 탭 초기 상태
+      switchTab('kanban');
+    })();
+
+    /* ─────────────────────────────────────────
+       탭 전환
+    ───────────────────────────────────────── */
+    function switchTab(tab) {
+      _currentTab = tab;
+
+      const sections = {
+        kanban: document.getElementById('kanban-section'),
+        chat:   document.getElementById('chat-section'),
+        members: document.getElementById('members-section'),
+      };
+      const tabs = {
+        kanban: document.getElementById('tab-kanban'),
+        chat:   document.getElementById('tab-chat'),
+        members: document.getElementById('tab-members'),
+      };
+
+      // 섹션 토글
+      Object.entries(sections).forEach(([key, el]) => {
+        if (!el) return;
+        if (key === tab) {
+          el.classList.remove('hidden');
+          el.classList.add('flex');
+        } else {
+          el.classList.add('hidden');
+          el.classList.remove('flex');
+        }
+      });
+
+      // 데스크탑 탭 버튼 스타일
+      Object.entries(tabs).forEach(([key, btn]) => {
+        if (!btn) return;
+        if (key === tab) {
+          btn.classList.add('bg-teal-600', 'text-white');
+          btn.classList.remove('bg-transparent', 'text-teal-100', 'hover:bg-white/10');
+        } else {
+          btn.classList.remove('bg-teal-600', 'text-white');
+          btn.classList.add('bg-transparent', 'text-teal-100', 'hover:bg-white/10');
+        }
+      });
+
+      // 채팅: 폴링 제어
+      if (tab === 'chat') {
+        chat.startPolling();
+      } else {
+        chat.stopPolling();
+      }
+    }
+
+    /* ─────────────────────────────────────────
+       모바일 메뉴
+    ───────────────────────────────────────── */
+    function toggleMobileMenu() {
+      const menu = document.getElementById('mobile-menu');
+      const overlay = document.getElementById('mobile-overlay');
+      if (!menu || !overlay) return;
+      const isOpen = !menu.classList.contains('translate-x-full');
+      if (isOpen) {
+        menu.classList.add('translate-x-full');
+        overlay.classList.add('hidden');
+      } else {
+        menu.classList.remove('translate-x-full');
+        overlay.classList.remove('hidden');
+      }
+    }
+
+    /* ─────────────────────────────────────────
+       멤버 목록 렌더링
+    ───────────────────────────────────────── */
+    async function _loadMembers(teamId) {
+      try {
+        const user = auth.getUser();
+        const data = await api.get(`/teams/${teamId}/members`);
+        const members = Array.isArray(data) ? data : (data.members || []);
+        const listEl = document.getElementById('members-list');
+        if (!listEl) return;
+
+        if (members.length === 0) {
+          listEl.innerHTML = '<p class="text-gray-400 text-sm">멤버가 없습니다.</p>';
+          return;
+        }
+
+        listEl.innerHTML = '';
+        members.forEach(m => {
+          const isOwner = _teamInfo && m.user_id === _teamInfo.owner_id;
+          const isMe = user && m.user_id === user.id;
+          const initial = (m.email || 'U').charAt(0).toUpperCase();
+          const joinDate = m.joined_at
+            ? new Date(m.joined_at).toLocaleDateString('ko-KR')
+            : '-';
+
+          const card = document.createElement('div');
+          card.className = 'flex items-center gap-3 bg-white border border-gray-200 rounded-xl px-4 py-3 shadow-sm';
+          card.innerHTML = `
+            <div class="w-9 h-9 rounded-full flex items-center justify-center shrink-0
+                        ${isOwner ? 'bg-teal-100 text-teal-700' : 'bg-gray-100 text-gray-600'}
+                        font-semibold text-sm">
+              ${initial}
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-medium text-gray-900 truncate">
+                ${_escHtml(m.email || '')}
+                ${isMe ? '<span class="ml-1 text-xs text-teal-600 font-normal">(나)</span>' : ''}
+              </p>
+              <p class="text-xs text-gray-400 mt-0.5">가입: ${joinDate}</p>
+            </div>
+            <div class="shrink-0">
+              ${isOwner
+                ? '<span class="text-xs bg-teal-50 text-teal-700 border border-teal-200 px-2 py-0.5 rounded-full font-medium">★ owner</span>'
+                : '<span class="text-xs text-gray-400">member</span>'}
+            </div>`;
+          listEl.appendChild(card);
+        });
+      } catch (err) {
+        const listEl = document.getElementById('members-list');
+        if (listEl) listEl.innerHTML = '<p class="text-red-400 text-sm">멤버 목록을 불러오지 못했습니다.</p>';
+      }
+    }
+
+    /* ─────────────────────────────────────────
+       로그아웃
+    ───────────────────────────────────────── */
+    function doLogout() {
+      auth.clearAuth();
+      window.location.href = '/login';
+    }
+
+    /* ─────────────────────────────────────────
+       유틸
+    ───────────────────────────────────────── */
+    function _escHtml(str) {
+      if (!str) return '';
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    /* ─────────────────────────────────────────
+       화면 크기 변경 시 칸반 컬럼 표시 재설정
+    ───────────────────────────────────────── */
+    window.addEventListener('resize', () => {
+      if (window.innerWidth >= 768) {
+        ['TODO', 'DOING', 'DONE'].forEach(s => {
+          const col = document.getElementById(`col-${s}`);
+          if (col) col.style.display = 'flex';
+        });
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TaskFlow - 로그인</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: { DEFAULT: '#00b4a0', dark: '#0f3444', mid: '#0d2137' }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="min-h-screen bg-[#0d2137] flex items-center justify-center px-4">
+
+  <!-- 토스트 컨테이너 (api.js가 주입) -->
+  <div id="toast-container" class="fixed top-4 right-4 z-50 flex flex-col gap-2"></div>
+
+  <!-- 카드 -->
+  <div class="w-full max-w-md">
+
+    <!-- 로고 -->
+    <div class="flex justify-center mb-8">
+      <div class="bg-[#00b4a0] rounded-2xl px-6 py-3 shadow-lg">
+        <span class="text-white text-2xl font-bold tracking-wide">TaskFlow</span>
+      </div>
+    </div>
+
+    <!-- 카드 본문 -->
+    <div class="bg-white rounded-2xl shadow-2xl overflow-hidden">
+
+      <!-- 탭 -->
+      <div class="flex">
+        <button
+          id="tab-login"
+          onclick="switchTab('login')"
+          class="flex-1 py-4 text-sm font-semibold border-b-2 border-teal-600 text-teal-700 bg-teal-50 transition-all"
+        >로그인</button>
+        <button
+          id="tab-signup"
+          onclick="switchTab('signup')"
+          class="flex-1 py-4 text-sm font-semibold border-b-2 border-transparent text-gray-400 hover:text-gray-600 transition-all"
+        >회원가입</button>
+      </div>
+
+      <!-- 로그인 폼 -->
+      <form id="form-login" onsubmit="handleLogin(event)" class="p-8 flex flex-col gap-5">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">이메일</label>
+          <input
+            id="login-email"
+            type="email"
+            placeholder="example@email.com"
+            class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-teal-400 transition"
+          />
+          <p id="login-email-err" class="mt-1 text-xs text-red-500 hidden"></p>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">비밀번호</label>
+          <input
+            id="login-password"
+            type="password"
+            placeholder="비밀번호를 입력하세요"
+            class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-teal-400 transition"
+          />
+          <p id="login-password-err" class="mt-1 text-xs text-red-500 hidden"></p>
+        </div>
+        <p id="login-general-err" class="text-sm text-red-500 hidden"></p>
+        <button
+          id="login-btn"
+          type="submit"
+          class="w-full bg-teal-600 hover:bg-teal-700 text-white font-semibold py-2.5 rounded-lg transition disabled:opacity-60 disabled:cursor-not-allowed"
+        >로그인</button>
+        <p class="text-center text-sm text-gray-500">
+          계정이 없으신가요?
+          <button type="button" onclick="switchTab('signup')" class="text-teal-600 hover:underline font-medium">회원가입</button>
+        </p>
+      </form>
+
+      <!-- 회원가입 폼 -->
+      <form id="form-signup" onsubmit="handleSignup(event)" class="p-8 flex flex-col gap-5 hidden">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">이메일</label>
+          <input
+            id="signup-email"
+            type="email"
+            placeholder="example@email.com"
+            class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-teal-400 transition"
+          />
+          <p id="signup-email-err" class="mt-1 text-xs text-red-500 hidden"></p>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">비밀번호</label>
+          <input
+            id="signup-password"
+            type="password"
+            placeholder="8자 이상 입력하세요"
+            class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-teal-400 transition"
+          />
+          <p id="signup-password-err" class="mt-1 text-xs text-red-500 hidden"></p>
+        </div>
+        <p id="signup-general-err" class="text-sm text-red-500 hidden"></p>
+        <button
+          id="signup-btn"
+          type="submit"
+          class="w-full bg-teal-600 hover:bg-teal-700 text-white font-semibold py-2.5 rounded-lg transition disabled:opacity-60 disabled:cursor-not-allowed"
+        >회원가입</button>
+        <p class="text-center text-sm text-gray-500">
+          이미 계정이 있으신가요?
+          <button type="button" onclick="switchTab('login')" class="text-teal-600 hover:underline font-medium">로그인</button>
+        </p>
+      </form>
+
+    </div><!-- /카드 -->
+  </div>
+
+  <script src="/static/api.js"></script>
+  <script src="/static/auth.js"></script>
+  <script>
+    /* ── 진입 가드 ── */
+    auth.requireNoAuth();
+
+    /* ── 탭 전환 ── */
+    function switchTab(tab) {
+      const isLogin = tab === 'login';
+
+      // 폼 토글
+      document.getElementById('form-login').classList.toggle('hidden', !isLogin);
+      document.getElementById('form-signup').classList.toggle('hidden', isLogin);
+
+      // 탭 스타일
+      const loginTab  = document.getElementById('tab-login');
+      const signupTab = document.getElementById('tab-signup');
+
+      if (isLogin) {
+        loginTab.classList.add('border-teal-600', 'text-teal-700', 'bg-teal-50');
+        loginTab.classList.remove('border-transparent', 'text-gray-400');
+        signupTab.classList.remove('border-teal-600', 'text-teal-700', 'bg-teal-50');
+        signupTab.classList.add('border-transparent', 'text-gray-400');
+      } else {
+        signupTab.classList.add('border-teal-600', 'text-teal-700', 'bg-teal-50');
+        signupTab.classList.remove('border-transparent', 'text-gray-400');
+        loginTab.classList.remove('border-teal-600', 'text-teal-700', 'bg-teal-50');
+        loginTab.classList.add('border-transparent', 'text-gray-400');
+      }
+
+      clearErrors();
+    }
+
+    /* ── 에러 초기화 ── */
+    function clearErrors() {
+      ['login-email-err','login-password-err','login-general-err',
+       'signup-email-err','signup-password-err','signup-general-err'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) { el.textContent = ''; el.classList.add('hidden'); }
+      });
+    }
+
+    function showFieldError(id, msg) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.textContent = msg;
+      el.classList.remove('hidden');
+    }
+
+    /* ── 유효성 검사 ── */
+    function validateEmail(email) {
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    }
+
+    /* ── 로그인 처리 ── */
+    async function handleLogin(e) {
+      e.preventDefault();
+      clearErrors();
+
+      const email    = document.getElementById('login-email').value.trim();
+      const password = document.getElementById('login-password').value;
+      const btn      = document.getElementById('login-btn');
+
+      let valid = true;
+      if (!validateEmail(email)) {
+        showFieldError('login-email-err', '올바른 이메일 형식을 입력하세요.');
+        valid = false;
+      }
+      if (password.length < 8) {
+        showFieldError('login-password-err', '비밀번호는 8자 이상이어야 합니다.');
+        valid = false;
+      }
+      if (!valid) return;
+
+      btn.disabled = true;
+      btn.textContent = '처리 중...';
+
+      try {
+        const data = await api.post('/auth/login', { email, password });
+        auth.setToken(data.token, data.user);
+        window.location.href = data.user.team_id ? '/app' : '/team';
+      } catch (err) {
+        showFieldError('login-general-err', err.message || '로그인에 실패했습니다.');
+        document.getElementById('login-general-err').classList.remove('hidden');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '로그인';
+      }
+    }
+
+    /* ── 회원가입 처리 ── */
+    async function handleSignup(e) {
+      e.preventDefault();
+      clearErrors();
+
+      const email    = document.getElementById('signup-email').value.trim();
+      const password = document.getElementById('signup-password').value;
+      const btn      = document.getElementById('signup-btn');
+
+      let valid = true;
+      if (!validateEmail(email)) {
+        showFieldError('signup-email-err', '올바른 이메일 형식을 입력하세요.');
+        valid = false;
+      }
+      if (password.length < 8) {
+        showFieldError('signup-password-err', '비밀번호는 8자 이상이어야 합니다.');
+        valid = false;
+      }
+      if (!valid) return;
+
+      btn.disabled = true;
+      btn.textContent = '처리 중...';
+
+      try {
+        const data = await api.post('/auth/signup', { email, password });
+        auth.setToken(data.token, data.user);
+        window.location.href = data.user.team_id ? '/app' : '/team';
+      } catch (err) {
+        showFieldError('signup-general-err', err.message || '회원가입에 실패했습니다.');
+        document.getElementById('signup-general-err').classList.remove('hidden');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '회원가입';
+      }
+    }
+  </script>
+</body>
+</html>
