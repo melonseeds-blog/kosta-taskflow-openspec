@@ -1,0 +1,12 @@
+# Claude Code 세션 설정
+.claude/
+
+# PDF 원본 문서 (대용량)
+docs/
+
+# 로컬 실행 스크립트
+claude.bat
+
+# OS
+.DS_Store
+Thumbs.db
