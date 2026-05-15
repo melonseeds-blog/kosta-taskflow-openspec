@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Literal
-from pydantic import BaseModel, EmailStr, field_validator, model_config
+from pydantic import BaseModel, ConfigDict, EmailStr, field_validator
 
 
 # --- Auth ---
@@ -23,7 +23,7 @@ class LoginRequest(BaseModel):
 
 
 class UserOut(BaseModel):
-    model_config = model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
     id: int
     email: str
@@ -62,7 +62,7 @@ class TeamJoinRequest(BaseModel):
 
 
 class TeamOut(BaseModel):
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
     id: int
     name: str
@@ -72,7 +72,7 @@ class TeamOut(BaseModel):
 
 
 class TeamJoinTeamInfo(BaseModel):
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
     id: int
     name: str
@@ -85,7 +85,7 @@ class TeamJoinResponse(BaseModel):
 
 
 class MemberOut(BaseModel):
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
     id: int
     email: str
@@ -128,7 +128,7 @@ class TaskStatusRequest(BaseModel):
 
 
 class TaskOut(BaseModel):
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
     id: int
     team_id: int
@@ -155,7 +155,7 @@ class MessageCreateRequest(BaseModel):
 
 
 class MessageOut(BaseModel):
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
     id: int
     user_id: int
